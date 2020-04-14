@@ -7,17 +7,19 @@
         <form id="controls">
             <!-- <input type="radio" name="squares" value="true" checked>True<br>
             <input type="radio" name="squares" value="false">False<br> -->
-            <input type="range" name="speed" id="speed" value="15" min="1" max="1000">&nbsp;
+            <input type="range" name="speed" id="speed" value="90" min="" max="100">&nbsp;
             <input type="button" onclick="change_speed()" value="Change Speed">&nbsp;
-            <input type="button" onclick="toggle_evolve()" value="Pause/Resume">&nbsp;
+            <input type="button" onclick="toggle_refresh()" value="Pause/Resume">&nbsp;
+            <input type="button" onclick="clear_board()" value="Clear!">&nbsp;
             <input type="button" onclick="create_random_state()" value="New Random Seed">&nbsp;
             <input type="button" onclick="toggle_shapes()" value="Toggle Shapes!">&nbsp;
-            <input type="button" onclick="toggle_gliders()" value="Toggle Gliders!"><br /><br />
+            <input type="button" onclick="toggle_gliders()" value="Toggle Gliders!">&nbsp;
+            <input type="button" onclick="insert_little_man()" value="Toggle little man!"><br /><br />
         </form>
         <canvas id="cgol" width="1000" height="700"></canvas>
         <script>
             // where the magic happens...
-            
+
             // some global variables
             timeout_id = 0;
             unit_size = 10;
@@ -25,24 +27,29 @@
             tile_count_x = 5;
             state_current = [];
             squares = true;
-            speed = ~~(1000/15);
-            evolving = true;
+            speed = 100;
+            ticking = true;
+            should_clear_state = false;
             lifetime = 0;
-            gliders = true;
+            gliders = false;
+            little_man = true;
 
             // function that automatically gets called when the window loads
             window.onload=function() {
                 canv=document.getElementById("cgol");
                 ctx=canv.getContext("2d");
                 //document.addEventListener("keydown",keyPush);
-                tile_count_y = ~~(canv.height/unit_size);
                 tile_count_x = ~~(canv.width/unit_size);
+                tile_count_y = ~~(canv.height/unit_size);
                 //create_random_state();
+                console.log("tile count x: ", tile_count_x);
+                console.log("tile count y: ", tile_count_y);
+
                 state_current = two_dim_array(tile_count_x, tile_count_y, 0);
                 // TODO: Create a class that can load from designs instead of random e.g. gliders
-                create_glider_top_left(state_current);
-                create_glider_top_right(state_current);
-                timeout_id = setInterval(evolve, speed);
+                //create_glider_top_left(state_current);
+                //create_glider_top_right(state_current);
+                timeout_id = setInterval(refresh, speed);
             }
 
             function change_speed() {
@@ -50,21 +57,26 @@
                 refreshTime = document.getElementById("controls")["speed"].value;
                 console.log("changing!")
                 clearInterval(timeout_id);
-                speed = ~~(1000/refreshTime);
+                speed = 1000-(~~((refreshTime/100)*1000));
                 console.log("new speed:" + speed);
-                timeout_id = setInterval(evolve, speed);
+                timeout_id = setInterval(refresh, speed);
             }
 
-            function toggle_evolve() {
-                if (evolving === true) {
+            function toggle_refresh() {
+                if (ticking === true) {
                     console.log("pausing!")
-                    evolving = false;
+                    ticking = false;
                     clearInterval(timeout_id);
                 } else {
                     console.log("unpausing!")
-                    evolving = true;
-                    timeout_id = setInterval(evolve, speed);
+                    ticking = true;
+                    timeout_id = setInterval(refresh, speed);
                 }
+            }
+
+            function clear_board() {
+                console.log("Clearing!");
+                should_clear_state = true;
             }
 
             function toggle_shapes() {
@@ -75,6 +87,11 @@
             function toggle_gliders() {
                 gliders = !gliders;
                 console.log("Gliders are now: ", gliders);
+            }
+
+            function insert_little_man() {
+                little_man = true;
+                console.log("Inserting little man");
             }
 
             function niceRand(n) {
@@ -91,10 +108,22 @@
                 return arr;
             }
 
-            // x - - 
-            // - x x 
-            // x x - 
-            function create_glider_top_left(state_current) {
+            function reset_state() {
+                if (should_clear_state === false) {
+                    return;
+                }
+                for (y=0; y<tile_count_y; y++) {
+                    for (x=0; x<tile_count_x; x++) {
+                        state_current[y][x] = 0;
+                    }
+                }
+                should_clear_state = false;
+            }
+
+            // x - -
+            // - x x
+            // x x -
+            function create_glider_top_left() {
                 if (gliders === false) {
                     return;
                 }
@@ -109,22 +138,67 @@
                 state_current[3][4] = 1;
             }
 
-            // - - x 
-            // x x - 
-            // - x x 
-            function create_glider_top_right(state_current) {
+            // - - x
+            // x x -
+            // - x x
+            function create_glider_top_right() {
                 if (gliders === false) {
                     return;
                 }
                 if (lifetime % 17 != 0) {
                     return;
                 }
-                console.log("create glider in top right shoot down to the bottom right");                
+                console.log("create glider in top right shoot down to the bottom right");
                 state_current[1][tile_count_x - 3] = 1;
                 state_current[2][tile_count_x - 4] = 1;
                 state_current[2][tile_count_x - 5] = 1;
                 state_current[3][tile_count_x - 3] = 1;
                 state_current[3][tile_count_x - 4] = 1;
+            }
+
+            // - - x x x - -
+            // - - x - x - -
+            // - - x - x - -
+            // - - - x - - -
+            // x - x x x - -
+            // - x - x - x -
+            // - - - x - - x
+            // - - x - x - -
+            // - - x - x - -
+            function create_little_man() {
+                if (little_man === false) {
+                    return;
+                }
+                console.log("create little man");
+                sx = 20;
+                sy = 40;
+                for (x=0; x<7; x++) {
+                    for (y=0; y<9; y++) {
+                        state_current[sx + x][sy + y] = 0;
+                    }
+                }
+                state_current[sy + 0][sx + 2] = 1;
+                state_current[sy + 0][sx + 3] = 1;
+                state_current[sy + 0][sx + 4] = 1;
+                state_current[sy + 1][sx + 2] = 1;
+                state_current[sy + 1][sx + 4] = 1;
+                state_current[sy + 2][sx + 2] = 1;
+                state_current[sy + 2][sx + 4] = 1;
+                state_current[sy + 3][sx + 3] = 1;
+                state_current[sy + 4][sx + 0] = 1;
+                state_current[sy + 4][sx + 2] = 1;
+                state_current[sy + 4][sx + 3] = 1;
+                state_current[sy + 4][sx + 4] = 1;
+                state_current[sy + 5][sx + 1] = 1;
+                state_current[sy + 5][sx + 3] = 1;
+                state_current[sy + 5][sx + 5] = 1;
+                state_current[sy + 6][sx + 3] = 1;
+                state_current[sy + 6][sx + 6] = 1;
+                state_current[sy + 7][sx + 2] = 1;
+                state_current[sy + 7][sx + 4] = 1;
+                state_current[sy + 8][sx + 2] = 1;
+                state_current[sy + 8][sx + 4] = 1;
+                little_man = false;
             }
 
             function create_random_state() {
@@ -137,20 +211,17 @@
                         state_current[y][x] = (r == 0 ? 1 : 0);
                     }
                 }
-                refresh();
             }
 
             function evolve() {
-                if (evolving === false) return;
                 lifetime++;
                 console.log("evolve");
-                console.log("speed is:" + speed);
 
                 max_y = tile_count_y - 1;
                 max_x = tile_count_x - 1;
                 state_new = two_dim_array(tile_count_x, tile_count_y, 0);
 
-                for (y=0; y<tile_count_y; y++) {                
+                for (y=0; y<tile_count_y; y++) {
                     for (x=0; x<tile_count_x; x++) {
                         // neighbour check
                         neighbour_count = 0;
@@ -198,34 +269,43 @@
                 } // closure of vertical grid check
 
                 state_current = state_new;
-                create_glider_top_left(state_current);
-                create_glider_top_right(state_current);
-                refresh();
             }
 
             function refresh() {
+                if (ticking === false) return;
+                console.log("speed is:" + speed);
+                evolve();
+                reset_state();
+                create_glider_top_left();
+                create_glider_top_right();
+                create_little_man();
+
                 ctx.fillStyle="black";
                 ctx.fillRect(0,0,canv.width,canv.height);
 
                 //ctx.fillStyle="lime";
-                for (y=0; y<tile_count_y; y++) {
-                    for (x=0; x<tile_count_x; x++) {
-                        if (state_current[y][x] == 1) {
-                            ctx.fillStyle = 'rgb(' + 
+                ctx.fillStyle = 'rgb(' +
                                 (niceRand(200)+30) + ','+
                                 (niceRand(200)+30) + ',' +
                                 (niceRand(200)+30) + ')';
+                for (y=0; y<tile_count_y; y++) {
+                    for (x=0; x<tile_count_x; x++) {
+                        if (state_current[y][x] == 1) {
+                            //ctx.fillStyle = 'rgb(' +
+                            //    (niceRand(200)+30) + ','+
+                            //    (niceRand(200)+30) + ',' +
+                            //    (niceRand(200)+30) + ')';
                             // ctx.fillStyle = 'rgb(0,' + niceRand(225)+30 + ',0)';
                             if (squares === true) {
                                 // draw squares
                                 ctx.fillRect(x*unit_size, y*unit_size, unit_size-2, unit_size-2);
                             } else {
                                 // or draw circles
-                                let radius = ~~(unit_size/2);
+                                let radius = ~~(unit_size/1.5);
                                 // squishy mode!
                                 //let radius = (unit_size);
                                 ctx.beginPath();
-                                ctx.arc((x*unit_size)+radius, (y*unit_size)+radius, radius-2, 0, Math.PI*2, true); 
+                                ctx.arc((x*unit_size)+radius, (y*unit_size)+radius, radius-2, 0, Math.PI*2, true);
                                 ctx.closePath();
                                 ctx.fill();
                             }
